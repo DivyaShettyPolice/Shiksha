@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useProfile } from '../contexts/ProfileContext';
 import { User, BookOpen, Eye, Volume2, FileText, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { LEARNING_STYLES, EXAM_TYPES, GRADE_LEVELS, getLearningStylesList, getExamTypesList } from '../lib/constants';
 
 interface ProfileSetupProps {
   onComplete: () => void;
@@ -19,33 +20,8 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedParentSubject, setSelectedParentSubject] = useState<string>('');
 
-  const learningStyles = [
-    {
-      id: 'visual' as const,
-      name: 'Visual Learner',
-      description: 'I learn best with diagrams, charts, and visual aids',
-      icon: <Eye size={24} />
-    },
-    {
-      id: 'audio' as const,
-      name: 'Audio Learner',
-      description: 'I prefer listening to explanations and discussions',
-      icon: <Volume2 size={24} />
-    },
-    {
-      id: 'text' as const,
-      name: 'Text Learner',
-      description: 'I like reading and taking detailed notes',
-      icon: <FileText size={24} />
-    }
-  ];
-
-  const examTypes = [
-    { id: 'Boards', name: 'School Boards (CBSE/ICSE/State)' },
-    { id: 'NEET', name: 'NEET (Medical Entrance)' },
-    { id: 'JEE', name: 'JEE (Engineering Entrance)' },
-    { id: 'UPSC', name: 'UPSC (Civil Services)' },
-  ];
+  const learningStyles = getLearningStylesList();
+  const examTypes = getExamTypesList();
 
   const handleSubjectToggle = (subjectId: string) => {
     setPreferredSubjects(prev =>
@@ -63,7 +39,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
       await createProfile({
         grade_level: gradeLevel,
         learning_style: learningStyle,
-        preferred_subjects: [selectedSubject],
+        preferred_subjects: selectedSubject ? [selectedSubject] : [],
         exam_type: examType,
       });
       onComplete();
@@ -78,18 +54,24 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
   useEffect(() => {
     const fetchSubjects = async () => {
       if (!gradeLevel) return;
-      const { data } = await supabase
-        .from('syllabus')
-        .select('subject')
-        .eq('class', gradeLevel.toString())
-        .neq('subject', '')
-        .order('subject', { ascending: true });
-      if (data) {
-        const uniqueSubjects = Array.from(new Set(data.map((row) => row.subject)));
-        setSubjects(uniqueSubjects);
-        setSelectedSubject('');
-        setParentSubjects([]);
-        setSelectedParentSubject('');
+      try {
+        const { data } = await supabase
+          .from('syllabus')
+          .select('subject')
+          .eq('class', gradeLevel.toString())
+          .neq('subject', '')
+          .order('subject', { ascending: true });
+        if (data) {
+          const uniqueSubjects = Array.from(new Set(data.map((row) => row.subject)));
+          setSubjects(uniqueSubjects);
+          setSelectedSubject('');
+          setParentSubjects([]);
+          setSelectedParentSubject('');
+        }
+      } catch (error) {
+        console.error('Error fetching subjects:', error);
+        // Fallback subjects
+        setSubjects(['Mathematics', 'Science', 'History']);
       }
     };
     fetchSubjects();
@@ -99,17 +81,23 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
   useEffect(() => {
     const fetchParentSubjects = async () => {
       if (!gradeLevel || !selectedSubject) return;
-      const { data } = await supabase
-        .from('syllabus')
-        .select('parent_subject')
-        .eq('class', gradeLevel.toString())
-        .eq('subject', selectedSubject)
-        .neq('parent_subject', null);
-      if (data) {
-        const uniqueParents = Array.from(new Set(data.map((row) => row.parent_subject).filter(Boolean)));
-        setParentSubjects(uniqueParents);
-        setSelectedParentSubject(uniqueParents.length === 1 ? uniqueParents[0] : '');
-      } else {
+      try {
+        const { data } = await supabase
+          .from('syllabus')
+          .select('parent_subject')
+          .eq('class', gradeLevel.toString())
+          .eq('subject', selectedSubject)
+          .neq('parent_subject', null);
+        if (data) {
+          const uniqueParents = Array.from(new Set(data.map((row) => row.parent_subject).filter(Boolean)));
+          setParentSubjects(uniqueParents);
+          setSelectedParentSubject(uniqueParents.length === 1 ? uniqueParents[0] : '');
+        } else {
+          setParentSubjects([]);
+          setSelectedParentSubject('');
+        }
+      } catch (error) {
+        console.error('Error fetching parent subjects:', error);
         setParentSubjects([]);
         setSelectedParentSubject('');
       }
@@ -140,18 +128,18 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
                 What grade are you in? 📚
               </label>
               <div className="grid grid-cols-4 gap-3">
-                {Array.from({ length: 12 }, (_, i) => (
+                {GRADE_LEVELS.map((grade) => (
                   <button
-                    key={i + 1}
+                    key={grade}
                     type="button"
-                    onClick={() => setGradeLevel(i + 1)}
+                    onClick={() => setGradeLevel(grade)}
                     className={`p-3 rounded-lg border-2 font-medium transition-all ${
-                      gradeLevel === i + 1
+                      gradeLevel === grade
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                         : 'border-gray-200 hover:border-gray-300 text-gray-700'
                     }`}
                   >
-                    Class {i + 1}
+                    Class {grade}
                   </button>
                 ))}
               </div>
@@ -175,10 +163,10 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
                     }`}
                   >
                     <div className="flex items-center">
-                      <div className={`p-2 rounded-lg mr-4 ${
-                        learningStyle === style.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                      <div className={`p-2 rounded-lg mr-4 text-2xl ${
+                        learningStyle === style.id ? 'bg-blue-100' : 'bg-gray-100'
                       }`}>
-                        {style.icon}
+                        {style.emoji}
                       </div>
                       <div>
                         <h3 className={`font-semibold ${
@@ -198,45 +186,22 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
               </div>
             </div>
 
-            {/* Preferred Subjects */}
+            {/* Target Exam */}
             <div>
               <label className="block text-lg font-semibold text-gray-900 mb-4">
-                Which subjects interest you most? (Select any) ✨
+                What's your target exam? 🎯
               </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {subjects.map((subject) => (
-                  <button
-                    key={subject}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSubject(subject);
-                      setSelectedParentSubject('');
-                    }}
-                    className={`p-4 rounded-lg border-2 text-center transition-all ${
-                      preferredSubjects.includes(subject)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <h3 className={`font-semibold ${
-                      preferredSubjects.includes(subject) ? 'text-green-900' : 'text-gray-900'
-                    }`}>
-                      {subject}
-                    </h3>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Target Exam</label>
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {examTypes.map((exam) => (
                   <button
                     type="button"
                     key={exam.id}
                     onClick={() => setExamType(exam.id)}
-                    className={`px-4 py-2 rounded-lg border font-medium transition-colors ${examType === exam.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-blue-50'}`}
+                    className={`p-4 rounded-lg border-2 text-left font-medium transition-all ${
+                      examType === exam.id 
+                        ? 'border-green-500 bg-green-50 text-green-900' 
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
                   >
                     {exam.name}
                   </button>
@@ -244,38 +209,45 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete }) => {
               </div>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 font-medium mb-2">Select Subject</label>
-              <select
-                className="w-full border rounded-lg px-3 py-2"
-                value={selectedSubject}
-                onChange={(e) => {
-                  setSelectedSubject(e.target.value);
-                  setSelectedParentSubject('');
-                }}
-                required
-              >
-                <option value="">-- Select Subject --</option>
-                {subjects.map((subject) => (
-                  <option key={subject} value={subject}>{subject}</option>
-                ))}
-              </select>
-            </div>
+            {/* Subject Selection */}
+            {subjects.length > 0 && (
+              <div>
+                <label className="block text-lg font-semibold text-gray-900 mb-4">
+                  Which subject interests you most? ✨
+                </label>
+                <div className="mb-4">
+                  <select
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none"
+                    value={selectedSubject}
+                    onChange={(e) => {
+                      setSelectedSubject(e.target.value);
+                      setSelectedParentSubject('');
+                    }}
+                    required
+                  >
+                    <option value="">-- Select Subject --</option>
+                    {subjects.map((subject) => (
+                      <option key={subject} value={subject}>{subject}</option>
+                    ))}
+                  </select>
+                </div>
 
-            {parentSubjects.length > 0 && (
-              <div className="mb-6">
-                <label className="block text-gray-700 font-medium mb-2">Select Sub-Subject</label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2"
-                  value={selectedParentSubject}
-                  onChange={(e) => setSelectedParentSubject(e.target.value)}
-                  required
-                >
-                  <option value="">-- Select Sub-Subject --</option>
-                  {parentSubjects.map((ps) => (
-                    <option key={ps} value={ps}>{ps}</option>
-                  ))}
-                </select>
+                {parentSubjects.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Sub-Subject</label>
+                    <select
+                      className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:border-blue-500 focus:outline-none"
+                      value={selectedParentSubject}
+                      onChange={(e) => setSelectedParentSubject(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Select Sub-Subject --</option>
+                      {parentSubjects.map((ps) => (
+                        <option key={ps} value={ps}>{ps}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 

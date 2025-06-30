@@ -50,6 +50,7 @@ export type Database = {
           grade_level: number;
           learning_style: 'visual' | 'audio' | 'text';
           preferred_subjects: string[];
+          exam_type: string;
           created_at: string;
           updated_at: string;
         };
@@ -59,6 +60,7 @@ export type Database = {
           grade_level: number;
           learning_style?: 'visual' | 'audio' | 'text';
           preferred_subjects?: string[];
+          exam_type?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -68,6 +70,7 @@ export type Database = {
           grade_level?: number;
           learning_style?: 'visual' | 'audio' | 'text';
           preferred_subjects?: string[];
+          exam_type?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -143,6 +146,44 @@ export type Database = {
           ai_response?: string;
           context?: any;
           created_at?: string;
+        };
+      };
+      syllabus: {
+        Row: {
+          id: string;
+          class: string;
+          subject: string;
+          parent_subject?: string;
+          chapter_id: string;
+          chapter_name: string;
+          order: number;
+          description?: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          class: string;
+          subject: string;
+          parent_subject?: string;
+          chapter_id: string;
+          chapter_name: string;
+          order?: number;
+          description?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          class?: string;
+          subject?: string;
+          parent_subject?: string;
+          chapter_id?: string;
+          chapter_name?: string;
+          order?: number;
+          description?: string;
+          created_at?: string;
+          updated_at?: string;
         };
       };
     };

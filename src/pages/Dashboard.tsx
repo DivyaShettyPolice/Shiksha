@@ -6,6 +6,7 @@ import { BookOpen, Brain, Trophy, Clock, TrendingUp, Target, Plus, Calendar, Bar
 import ProfileSetup from '../components/ProfileSetup';
 import RoadmapCreator from '../components/RoadmapCreator';
 import ProgressDashboard from '../components/ProgressDashboard';
+import { SUBJECTS, getSubjectsList } from '../lib/constants';
 
 const Dashboard: React.FC = () => {
   const { progress, loading: progressLoading } = useProgress();
@@ -13,38 +14,10 @@ const Dashboard: React.FC = () => {
   const [showRoadmapCreator, setShowRoadmapCreator] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const subjects = [
-    { 
-      name: 'Mathematics', 
-      slug: 'math', 
-      color: 'bg-blue-500', 
-      lightColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
-      emoji: '📐',
-      description: 'Algebra, Geometry, Trigonometry & more'
-    },
-    { 
-      name: 'Science', 
-      slug: 'science', 
-      color: 'bg-green-500', 
-      lightColor: 'bg-green-50',
-      textColor: 'text-green-600',
-      emoji: '🔬',
-      description: 'Physics, Chemistry, Biology'
-    },
-    { 
-      name: 'History', 
-      slug: 'history', 
-      color: 'bg-purple-500', 
-      lightColor: 'bg-purple-50',
-      textColor: 'text-purple-600',
-      emoji: '📚',
-      description: 'Ancient, Medieval & Modern History'
-    }
-  ];
+  const subjects = getSubjectsList();
 
-  const getSubjectStats = (subject: string) => {
-    const subjectProgress = progress.filter(p => p.subject === subject);
+  const getSubjectStats = (subjectSlug: string) => {
+    const subjectProgress = progress.filter(p => p.subject === subjectSlug);
     const completed = subjectProgress.length;
     const avgScore = subjectProgress.length > 0 
       ? subjectProgress.reduce((sum, p) => sum + (p.quiz_score || 0), 0) / subjectProgress.length
@@ -88,12 +61,12 @@ const Dashboard: React.FC = () => {
     const subjectName = subjects.find(s => s.slug === leastStudiedSubject)?.name || 'Mathematics';
     
     const recommendations: { [key: string]: string[] } = {
-      math: ['Linear Equations', 'Coordinate Geometry', 'Statistics', 'Probability'],
+      mathematics: ['Linear Equations', 'Coordinate Geometry', 'Statistics', 'Probability'],
       science: ['Acids and Bases', 'Light and Reflection', 'Heredity and Evolution', 'Carbon Compounds'],
       history: ['French Revolution', 'Nationalism in Europe', 'Forest Society', 'Age of Industrialization']
     };
 
-    const topics = recommendations[leastStudiedSubject] || recommendations.math;
+    const topics = recommendations[leastStudiedSubject] || recommendations.mathematics;
     return {
       subject: leastStudiedSubject,
       subjectName,
@@ -229,7 +202,7 @@ const Dashboard: React.FC = () => {
                       </div>
                       <div className="text-xs text-gray-500 mb-2">{completedSubtopics.length} of {totalSubtopics} subtopics completed</div>
                       <ul className="space-y-2">
-                        {subtopics.map((sub: any, idx: number) => (
+                        {subtopics.slice(0, 3).map((sub: any, idx: number) => (
                           <li key={sub.id || idx} className="flex items-center gap-2">
                             <input
                               type="checkbox"
@@ -240,14 +213,13 @@ const Dashboard: React.FC = () => {
                             <span className={completedSubtopics.includes(sub.id || idx) ? 'line-through text-gray-400' : ''}>
                               {sub.title || sub.name}
                             </span>
-                            <button
-                              className="ml-auto px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
-                              // onClick={() => launchLesson(sub)}
-                            >
-                              Start Lesson
-                            </button>
                           </li>
                         ))}
+                        {subtopics.length > 3 && (
+                          <li className="text-xs text-gray-500">
+                            +{subtopics.length - 3} more topics
+                          </li>
+                        )}
                       </ul>
                     </div>
                   </div>
@@ -470,66 +442,6 @@ const Dashboard: React.FC = () => {
                 }}
                 onCancel={() => setShowRoadmapCreator(null)}
               />
-            </div>
-          </div>
-        )}
-
-        {activeRoadmaps.length === 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">No Active Roadmaps</h2>
-            <div className="flex gap-4">
-              {subjects.map(subject => (
-                <button
-                  key={subject.slug}
-                  onClick={() => setShowRoadmapCreator(subject.slug)}
-                  className={`px-6 py-3 rounded-lg font-medium ${subject.color} text-white hover:opacity-90`}
-                >
-                  Create {subject.name} Roadmap
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Subject cards for preferred subjects */}
-        {profile.preferred_subjects && profile.preferred_subjects.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Subjects</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {profile.preferred_subjects.map((subjectId: string) => {
-                const subject = subjects.find(s => s.slug === subjectId);
-                if (!subject) return null;
-                // Calculate syllabus completion and current chapter
-                const subjectRoadmaps = roadmaps.filter(r => r.subject === subject.slug || r.subject === subjectId);
-                let syllabusCompleted = 0;
-                let currentChapter = '—';
-                if (subjectRoadmaps.length > 0) {
-                  const roadmap = subjectRoadmaps[0];
-                  const subtopics = Array.isArray(roadmap.roadmap_data) ? roadmap.roadmap_data : roadmap.roadmap_data?.subtopics || [];
-                  const completed = roadmap.progress?.completed || [];
-                  syllabusCompleted = subtopics.length > 0 ? Math.round((completed.length / subtopics.length) * 100) : 0;
-                  const nextIdx = subtopics.findIndex((sub: any, idx: number) => !completed.includes(sub.id || idx));
-                  currentChapter = nextIdx !== -1 && subtopics[nextIdx] ? subtopics[nextIdx].title || subtopics[nextIdx].name : 'Completed!';
-                }
-                return (
-                  <div key={subject.slug} className={`rounded-xl shadow-lg p-6 flex flex-col items-start ${subject.lightColor}`}>
-                    <div className="flex items-center mb-4">
-                      <div className={`w-12 h-12 ${subject.color} rounded-lg flex items-center justify-center text-white text-2xl mr-3`}>
-                        {subject.emoji}
-                      </div>
-                      <h3 className={`text-lg font-bold ${subject.textColor}`}>{subject.name}</h3>
-                    </div>
-                    <div className="mb-2 text-gray-700 font-medium">Syllabus Completed: {syllabusCompleted}%</div>
-                    <div className="mb-4 text-gray-600 text-sm">Current Chapter: <span className="font-semibold">{currentChapter}</span></div>
-                    <button
-                      className="mt-auto px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                      onClick={() => navigate(`/subject/${subject.slug}`)}
-                    >
-                      {syllabusCompleted === 100 ? 'Review Syllabus' : 'Resume / Explore Syllabus'}
-                    </button>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}
